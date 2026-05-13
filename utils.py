@@ -101,3 +101,70 @@ def extract_mat_file(filepath):
     
     f.close()
     return BFData_dict, ReconParams_dict
+
+def extract_subimage(image, depth_range, lateral_range, plot=True, db_range=45, IMG_min=None, IMG_max=None):
+    """
+    Extract a submatrix from a 2D image defined by index ranges and optionallyenvelope
+    plot the original image with the submatrix region highlighted.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        2D array of shape (depth, lateral) = (rows, columns).
+    depth_range : tuple (int, int)
+        Start and end indices for the depth (row) dimension. Supports
+        both inclusive (closed) and half‑open intervals.
+    lateral_range : tuple (int, int)
+        Start and end indices for the lateral (column) dimension.
+        Behaves similarly to depth_range.
+    plot : bool, optional
+        If True, display the original image with a red rectangle outlining
+        the extracted submatrix. Default is True.
+
+    Returns
+    -------
+    subimage : np.ndarray
+        The extracted submatrix as a 2D array.
+    """
+    # Unpack ranges
+    depth_start, depth_end = depth_range
+    lat_start, lat_end = lateral_range
+
+    depth_sub = slice(depth_start, depth_end + 1)
+    lat_sub = slice(lat_start, lat_end + 1)
+
+    subimage = image[depth_sub, lat_sub]
+
+    #log-compression
+    if IMG_max is None:
+        IMG_max = np.max(image)
+    log_env = 20 * np.log10(image / IMG_max)        # 0 at max    
+    if IMG_min is None:
+        min_db = -db_range
+    else:
+        min_db = 20 * np.log10(IMG_min / IMG_max)
+    log_image = np.clip(log_env, min_db, 0)
+
+    # Optional plotting
+    if plot:
+        plt.figure(figsize=(8, 6))
+        # Plot the whole image
+        plt.imshow(log_image, cmap='bone')
+        plt.title("Original image with extracted region")
+
+        # Draw rectangle: rectangle edges defined by (left, top, width, height)
+        # Coordinates are in pixel indices.
+        left = lat_start
+        top = depth_start
+        width = lat_end - lat_start + 1
+        height = depth_end - depth_start + 1
+
+        rect = plt.Rectangle((left, top), width, height,
+                             linewidth=2, edgecolor='r', facecolor='none')
+        plt.gca().add_patch(rect)
+
+        # Set aspect to auto to avoid distortion
+        plt.gca().set_aspect(2.0)
+        plt.show()
+
+    return subimage
